@@ -1,3 +1,21 @@
+/*
+
+For this program to execute correctly the following needs to be provided:
+
+- An internet connection
+- A private key
+- A receiving address
+- The raw json of the funding transaction
+- The index into that transaction that funds your private key.
+
+The program will formulate a transaction from these provided parameters
+and then it will dump the newly formed tx to the command line as well as
+try to broadcast the transaction into the bitcoin network. The raw hex dumped
+by the program can parsed into a 'semi' human readable format using services
+like: https://blockchain.info/decode-tx
+
+*/
+
 package main
 
 import (
@@ -17,22 +35,6 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcwire"
 )
-
-/*
-
-For this program to execute correctly the following needs to be provided:
-
-- An internet connection
-- A private key
-- A receiving address
-- The raw json of the funding transaction
-- The index into that transaction that funds your private key.
-
-The output of the program will be a valid bitcoin transaction encoded as hex
-which can be submitted to any bitcoin client or website that accepts raw hex
-transactions. For example: https://blockchain.info/pushtx
-
-*/
 
 var a = flag.String("address", "", "The address to send Bitcoin to.")
 var k = flag.String("privkey", "", "The private key of the input tx.")
@@ -109,7 +111,7 @@ func lookupTxid(hash *btcwire.ShaHash) *blockChainInfoTx {
 		log.Fatal(fmt.Errorf("TxInfo read failed: %s", err))
 	}
 
-	fmt.Printf("%s\n", b)
+	//fmt.Printf("%s\n", b)
 	txinfo := &blockChainInfoTx{}
 	err = json.Unmarshal(b, txinfo)
 	if err != nil {
@@ -127,7 +129,6 @@ func lookupTxid(hash *btcwire.ShaHash) *blockChainInfoTx {
 // To generate a new valid transaction all of the parameters of the TxOut we are
 // spending from must be used.
 func getFundingParams(rawtx *blockChainInfoTx, vout uint32) (*btcwire.TxOut, *btcwire.OutPoint) {
-	fmt.Printf("%+v\n", rawtx)
 	blkChnTxOut := rawtx.Outputs[vout]
 
 	hash, err := btcwire.NewShaHashFromStr(rawtx.Hash)
@@ -181,6 +182,9 @@ func main() {
 
 	// Dump the bytes to stdout
 	dumpHex(tx)
+
+	// Send the transaction to the network
+	broadcastTx(tx)
 }
 
 // createTxIn pulls the outpoint out of the funding TxOut and uses it as a reference
@@ -237,5 +241,39 @@ func dumpHex(tx *btcwire.MsgTx) {
 	buf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()))
 	tx.Serialize(buf)
 	hexstr := hex.EncodeToString(buf.Bytes())
+	fmt.Println("Here is your raw bitcoin transaction:")
 	fmt.Println(hexstr)
+}
+
+type sendTxJson struct {
+	RawTx string `json:"rawtx"`
+}
+
+// broadcastTx tries to send the transaction using an api that will broadcast
+// a submitted transaction on behalf of the user.
+func broadcastTx(tx *btcwire.MsgTx) {
+	buf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()))
+	tx.Serialize(buf)
+	hexstr := hex.EncodeToString(buf.Bytes())
+
+	url := "https://insight.bitpay.com/api/tx/send"
+	contentType := "application/json"
+
+	sendTxJson := &sendTxJson{RawTx: hexstr}
+	j, err := json.Marshal(sendTxJson)
+	if err != nil {
+		log.Fatal(fmt.Errorf("Broadcasting the tx failed: %v", err))
+	}
+	buf = bytes.NewBuffer(j)
+	resp, err := http.Post(url, contentType, buf)
+	if err != nil {
+		log.Fatal(fmt.Errorf("Broadcasting the tx failed: %v", err))
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("The sending api responded with:\n%s\n", b)
 }
