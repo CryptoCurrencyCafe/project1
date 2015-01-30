@@ -1,3 +1,19 @@
+/*
+
+For this program to execute correctly the following needs to be provided:
+
+- An internet connection
+- A private key
+- A receiving address
+- The raw json of the funding transaction
+- The index into that transaction that funds your private key.
+
+The output of the program will be a valid bitcoin transaction encoded as hex
+which can be submitted to any bitcoin client or website that accepts raw hex
+transactions. For example: https://blockchain.info/pushtx
+
+*/
+
 package main
 
 import (
@@ -17,22 +33,6 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcwire"
 )
-
-/*
-
-For this program to execute correctly the following needs to be provided:
-
-- An internet connection
-- A private key
-- A receiving address
-- The raw json of the funding transaction
-- The index into that transaction that funds your private key.
-
-The output of the program will be a valid bitcoin transaction encoded as hex
-which can be submitted to any bitcoin client or website that accepts raw hex
-transactions. For example: https://blockchain.info/pushtx
-
-*/
 
 var a = flag.String("address", "", "The address to send Bitcoin to.")
 var k = flag.String("privkey", "", "The private key of the input tx.")
